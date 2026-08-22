@@ -47,6 +47,10 @@ textarea{min-height:110px;resize:vertical}
 .strip button{border:1px solid #E7E3D8;background:#fff;border-radius:8px;
  padding:7px 12px;font:600 12px 'Jost',sans-serif;margin:8px 6px 0 0}
 .garde{padding:40px 24px;text-align:center;font:15px Inter,sans-serif;color:#6F6A6A}
+.modes{display:flex;gap:8px;margin-bottom:12px}
+.modes button{flex:1;border:1px solid #E7E3D8;background:#fff;border-radius:12px;
+ padding:12px 8px;font:600 14px 'Jost',sans-serif;color:#6F6A6A;cursor:pointer}
+.modes button.on{background:#33450F;border-color:#33450F;color:#fff}
 </style>
 </head>
 <body>
@@ -59,7 +63,7 @@ var SB='https://phnfkrdspysieykpbuow.supabase.co';
 var CLE='sb_publishable_edX1JYUSEgqWSZJBaea2gw_JSrxUG2W';
 var T={apikey:CLE,Authorization:'Bearer '+CLE};
 var TJ={apikey:CLE,Authorization:'Bearer '+CLE,'Content-Type':'application/json',Prefer:'return=minimal'};
-var QUI=null, CLIENT=null, PHOTOS=[], REC=null;
+var QUI=null, CLIENT=null, PHOTOS=[], REC=null, MODE='visite';
 function $(i){return document.getElementById(i);}
 function ech(t){var d=document.createElement('div');d.textContent=t==null?'':String(t);return d.innerHTML;}
 function param(n){return new URLSearchParams(location.search).get(n)||'';}
@@ -86,10 +90,15 @@ function garde(m){ $('corps').innerHTML='<div class="garde">'+ech(m)+'</div>'; }
 
 function dessiner(){
   $('corps').innerHTML=
-   '<div class="carte" id="cCli"><h2>Le client</h2>'
+   '<div class="modes">'
+   +'<button id="mVis" class="on" onclick="mode(\'visite\')">Note de visite</button>'
+   +'<button id="mDem" onclick="mode(\'demande\')">Demande de prix</button></div>'
+   +'<div class="carte" id="cCli"><h2>Le client</h2>'
    +'<div id="zCli"><input type="text" id="q" placeholder="Nom ou code du client…" autocomplete="off">'
    +'<div class="liste" id="sug"></div></div></div>'
-   +'<div class="carte"><h2>La note de visite</h2>'
+   +'<div class="carte" id="cProd" style="display:none"><h2>Le produit concerné</h2>'
+   +'<input type="text" id="produit" placeholder="Ex. sacs luxe, boîtes pâtissières 19x19…"></div>'
+   +'<div class="carte"><h2 id="tNote">La note de visite</h2>'
    +'<textarea id="note" placeholder="Racontez — ou dictez. « À recontacter dans trois mois pour… » devient un rappel."></textarea>'
    +'<div class="gros"><button id="mic" onclick="micro()">🎙 Dicter</button>'
    +'<label for="ph">📷 Photo<input type="file" id="ph" accept="image/*" capture="environment" multiple style="display:none"></label></div>'
@@ -98,7 +107,19 @@ function dessiner(){
    +'<div class="etat" id="etat"></div><div id="strip"></div>';
   $('q').addEventListener('input',chercher);
   $('ph').addEventListener('change',ajouterPhotos);
+  mode(MODE);
 }
+window.mode=function(m){
+  MODE=m;
+  $('mVis').classList.toggle('on',m==='visite');
+  $('mDem').classList.toggle('on',m==='demande');
+  $('cProd').style.display = m==='demande' ? 'block' : 'none';
+  $('tNote').textContent = m==='demande' ? 'Le commentaire de la demande' : 'La note de visite';
+  $('note').placeholder = m==='demande'
+    ? 'Ce qui précise la demande : teinte d’impression vue sur un autre produit, surface d’ancrage, gaufrage, impression intérieure…'
+    : 'Racontez — ou dictez. « À recontacter dans trois mois pour… » devient un rappel.';
+  $('go').textContent = m==='demande' ? 'Envoyer la demande de prix' : 'Enregistrer la visite';
+};
 var minuteur=null;
 function chercher(){
   clearTimeout(minuteur);
@@ -167,9 +188,10 @@ window.envoyer=function(){
   $('go').disabled=true; $('etat').textContent='Envoi…';
   var quand=new Date().toISOString().replace(/[:.]/g,'-');
   var urls=[];
+  var dossier = MODE==='demande' ? 'demandes' : 'visites';
   var suite=PHOTOS.reduce(function(p,b,i){
     return p.then(function(){
-      var objet='visites/'+CLIENT.code+'/'+quand+'-'+(i+1)+'.jpg';
+      var objet=dossier+'/'+CLIENT.code+'/'+quand+'-'+(i+1)+'.jpg';
       return fetch(SB+'/storage/v1/object/photos-produits/'+objet,
         {method:'POST',headers:{apikey:CLE,Authorization:'Bearer '+CLE,
          'Content-Type':'image/jpeg','x-upsert':'true'},body:b})
@@ -177,16 +199,29 @@ window.envoyer=function(){
     });
   },Promise.resolve());
   suite.then(function(){
-    var resume=note||'Photos prises en visite';
-    if(urls.length) resume+=' ['+urls.length+' photo'+(urls.length>1?'s':'')+']';
-    return fetch(SB+'/rest/v1/interactions',{method:'POST',headers:TJ,
-      body:JSON.stringify({client_code:CLIENT.code,canal:'visite',sens:'sortant',
+    var resume, corps;
+    if(MODE==='demande'){
+      var produit=($('produit').value||'').trim();
+      resume='DEMANDE DE PRIX'+(produit?' — '+produit:'')+(note?' : '+note:'');
+      if(urls.length) resume+=' ['+urls.length+' photo'+(urls.length>1?'s':'')+']';
+      corps={client_code:CLIENT.code,canal:'visite',sens:'entrant',motif:'devis',
+        auto:false,statut:'a_traiter',resume:resume.slice(0,2000),
+        collaborateur:QUI,objet_type:'demande_prix',objet_ref:urls[0]||null};
+    } else {
+      resume=note||'Photos prises en visite';
+      if(urls.length) resume+=' ['+urls.length+' photo'+(urls.length>1?'s':'')+']';
+      corps={client_code:CLIENT.code,canal:'visite',sens:'sortant',
         auto:false,statut:'traitee',resume:resume.slice(0,2000),
-        collaborateur:QUI,objet_type:urls.length?'photos':null,objet_ref:urls[0]||null})});
+        collaborateur:QUI,objet_type:urls.length?'photos':null,objet_ref:urls[0]||null};
+    }
+    return fetch(SB+'/rest/v1/interactions',{method:'POST',headers:TJ,
+      body:JSON.stringify(corps)});
   }).then(function(r){
     if(!r||!r.ok) throw 0;
-    $('etat').textContent='Visite enregistrée ✓';
-    rappel(note);
+    $('etat').textContent = MODE==='demande'
+      ? 'Demande envoyée ✓ — elle arrive dans la file à traiter'
+      : 'Visite enregistrée ✓';
+    if(MODE!=='demande') rappel(note);
     PHOTOS=[]; $('vg').innerHTML=''; $('note').value=''; $('go').disabled=false;
   }).catch(function(){ $('etat').textContent='L’envoi a échoué — réessayer.'; $('go').disabled=false; });
 };
