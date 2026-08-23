@@ -28,6 +28,9 @@ body{margin:0;background:#F4F2EA;color:#1B1917;
 input[type=text],textarea{width:100%;font:16px Inter,sans-serif;padding:12px;
  border:1px solid #E7E3D8;border-radius:10px;background:#FBFAF6}
 textarea{min-height:110px;resize:vertical}
+.fiche input{margin-bottom:8px}
+.fiche select{width:100%;font:16px Inter,sans-serif;padding:12px;margin-bottom:8px;
+ border:1px solid #E7E3D8;border-radius:10px;background:#FBFAF6;-webkit-appearance:none}
 .liste button{display:block;width:100%;text-align:left;background:#fff;border:none;
  border-bottom:1px solid #F2EFE7;padding:12px 6px;font:600 15px Inter,sans-serif;cursor:pointer}
 .liste button small{display:block;font-weight:400;color:#8A837C;font-size:12px}
@@ -50,8 +53,8 @@ textarea{min-height:110px;resize:vertical}
 .strip button{border:1px solid #E7E3D8;background:#fff;border-radius:8px;
  padding:7px 12px;font:600 12px 'Jost',sans-serif;margin:8px 6px 0 0}
 .garde{padding:40px 24px;text-align:center;font:15px Inter,sans-serif;color:#6F6A6A}
-.modes{display:flex;gap:8px;margin-bottom:12px}
-.modes button{flex:1;border:1px solid #E7E3D8;background:#fff;border-radius:12px;
+.modes{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.modes button{flex:1 1 45%;border:1px solid #E7E3D8;background:#fff;border-radius:12px;
  padding:12px 8px;font:600 14px 'Jost',sans-serif;color:#6F6A6A;cursor:pointer}
 .modes button.on{background:#BECE00;border-color:#7E8F00;color:#1B1917}
 </style>
@@ -66,7 +69,7 @@ var SB='https://phnfkrdspysieykpbuow.supabase.co';
 var CLE='sb_publishable_edX1JYUSEgqWSZJBaea2gw_JSrxUG2W';
 var T={apikey:CLE,Authorization:'Bearer '+CLE};
 var TJ={apikey:CLE,Authorization:'Bearer '+CLE,'Content-Type':'application/json',Prefer:'return=minimal'};
-var QUI=null, CLIENT=null, PHOTOS=[], REC=null, MODE='visite';
+var QUI=null, CLIENT=null, PHOTOS=[], PHOTOS_DATA=[], REC=null, MODE='visite';
 function $(i){return document.getElementById(i);}
 function ech(t){var d=document.createElement('div');d.textContent=t==null?'':String(t);return d.innerHTML;}
 function param(n){return new URLSearchParams(location.search).get(n)||'';}
@@ -95,12 +98,40 @@ function dessiner(){
   $('corps').innerHTML=
    '<div class="modes">'
    +'<button id="mVis" class="on" onclick="mode(\'visite\')">Note de visite</button>'
-   +'<button id="mDem" onclick="mode(\'demande\')">Compl\u00e9ment offre / demande de prix</button></div>'
+   +'<button id="mDem" onclick="mode(\'demande\')">Complément offre / demande</button>'
+   +'<button id="mPro" onclick="mode(\'prospect\')">Nouveau prospect</button>'
+   +'<button id="mNc" onclick="mode(\'nc\')">Non-conformité</button></div>'
    +'<div class="carte" id="cCli"><h2>Le client</h2>'
    +'<div id="zCli"><input type="text" id="q" placeholder="Nom ou code du client…" autocomplete="off">'
    +'<div class="liste" id="sug"></div></div></div>'
-   +'<div class="carte" id="cProd" style="display:none"><h2>L\u2019offre ou la demande concern\u00e9e</h2>'
-   +'<input type="text" id="produit" placeholder="N\u00b0 d\u2019offre s\u2019il est connu, ou le produit — ex. sacs luxe"></div>'
+   +'<div class="carte" id="cProd" style="display:none"><h2>L’offre ou la demande concernée</h2>'
+   +'<input type="text" id="produit" placeholder="N° d’offre s’il est connu, ou le produit — ex. sacs luxe"></div>'
+   +'<div class="carte" id="cCarte" style="display:none"><h2>La carte de visite</h2>'
+   +'<div style="font-size:13px;color:#6F6A6A;margin-bottom:8px">Photographiez la carte — la lecture remplit la fiche en dessous, tout reste corrigeable.</div>'
+   +'<div class="gros">'
+   +'<label for="cvR">📷 Recto<input type="file" id="cvR" accept="image/*" capture="environment" style="display:none"></label>'
+   +'<label for="cvV">📷 Verso<input type="file" id="cvV" accept="image/*" capture="environment" style="display:none"></label></div>'
+   +'<div class="vignettes" id="vgCv"></div>'
+   +'<div class="etat" id="ocrEtat" style="text-align:left;min-height:0"></div></div>'
+   +'<div class="carte" id="cPro" style="display:none"><h2>La fiche prospect</h2>'
+   +'<div class="fiche">'
+   +'<input type="text" id="p-rs" placeholder="Société (obligatoire)">'
+   +'<input type="text" id="p-int" placeholder="Contact — prénom et nom">'
+   +'<input type="text" id="p-tel" placeholder="Téléphone" inputmode="tel">'
+   +'<input type="text" id="p-mail" placeholder="E-mail" inputmode="email">'
+   +'<input type="text" id="p-site" placeholder="Site internet">'
+   +'<input type="text" id="p-adr" placeholder="Adresse">'
+   +'<div style="display:flex;gap:8px"><input type="text" id="p-cp" placeholder="CP" inputmode="numeric" style="flex:0 0 34%"><input type="text" id="p-ville" placeholder="Ville" style="flex:1"></div>'
+   +'</div><div id="p-doublon"></div></div>'
+   +'<div class="carte" id="cNc" style="display:none"><h2>La non-conformité</h2>'
+   +'<div class="fiche">'
+   +'<select id="nc-fam"><option value="reclamation">Réclamation client</option>'
+   +'<option value="nc">Non-conformité interne</option>'
+   +'<option value="fournisseur">Qualité fournisseur</option></select>'
+   +'<select id="nc-grav"><option value="mineure">Gravité : mineure</option>'
+   +'<option value="majeure">Gravité : majeure</option>'
+   +'<option value="critique">Gravité : critique</option></select>'
+   +'<input type="text" id="nc-art" placeholder="Article / produit concerné"></div></div>'
    +'<div class="carte"><h2 id="tNote">La note de visite</h2>'
    +'<textarea id="note" placeholder="Racontez — ou dictez. « À recontacter dans trois mois pour… » devient un rappel."></textarea>'
    +'<div class="gros"><button id="mic" onclick="micro()">🎙 Dicter</button>'
@@ -110,18 +141,39 @@ function dessiner(){
    +'<div class="etat" id="etat"></div><div id="strip"></div>';
   $('q').addEventListener('input',chercher);
   $('ph').addEventListener('change',ajouterPhotos);
+  $('cvR').addEventListener('change',function(){carteLire(this,'recto');});
+  $('cvV').addEventListener('change',function(){carteLire(this,'verso');});
+  ['p-rs','p-int','p-tel','p-mail','p-site','p-adr','p-cp','p-ville'].forEach(function(i){
+    $(i).addEventListener('input',function(){ this.dataset.main='1'; });
+  });
+  $('p-rs').addEventListener('blur',doublon);
   mode(MODE);
 }
 window.mode=function(m){
   MODE=m;
   $('mVis').classList.toggle('on',m==='visite');
   $('mDem').classList.toggle('on',m==='demande');
+  $('mPro').classList.toggle('on',m==='prospect');
+  $('mNc').classList.toggle('on',m==='nc');
+  $('cCli').style.display = m==='prospect' ? 'none' : 'block';
   $('cProd').style.display = m==='demande' ? 'block' : 'none';
-  $('tNote').textContent = m==='demande' ? 'Le commentaire' : 'La note de visite';
+  $('cCarte').style.display = m==='prospect' ? 'block' : 'none';
+  $('cPro').style.display = m==='prospect' ? 'block' : 'none';
+  $('cNc').style.display = m==='nc' ? 'block' : 'none';
+  $('tNote').textContent = m==='demande' ? 'Le commentaire'
+    : m==='prospect' ? 'Le premier échange (facultatif)'
+    : m==='nc' ? 'La description' : 'La note de visite';
   $('note').placeholder = m==='demande'
     ? 'Ce qui complète le dossier : teinte d’impression vue sur un autre produit, surface d’ancrage, gaufrage, impression intérieure…'
+    : m==='prospect'
+    ? 'Ce qui s’est dit : besoin évoqué, produits montrés, suite convenue…'
+    : m==='nc'
+    ? 'Que s’est-il passé ? Où, quand, combien de pièces… — ou dictez.'
     : 'Racontez — ou dictez. « À recontacter dans trois mois pour… » devient un rappel.';
-  $('go').textContent = m==='demande' ? 'Envoyer le complément' : 'Enregistrer la visite';
+  $('go').textContent = m==='demande' ? 'Envoyer le complément'
+    : m==='prospect' ? 'Créer le prospect'
+    : m==='nc' ? 'Déclarer la non-conformité' : 'Enregistrer la visite';
+  if(m==='prospect') chargerOcr();
 };
 var minuteur=null;
 function chercher(){
@@ -163,7 +215,8 @@ window.micro=function(){
   REC=r; r.start(); $('mic').classList.add('on'); $('mic').textContent='■ Arrêter';
 };
 
-/* --- photos : reduites sur place pour la 4G --- */
+/* --- photos : reduites sur place pour la 4G ; un double 800 px en dataurl
+       sert aux fiches qualite (meme rangement que l'ecran Qualite du bureau) --- */
 function ajouterPhotos(){
   var fs=[].slice.call($('ph').files||[]);
   fs.forEach(function(f){
@@ -176,14 +229,124 @@ function ajouterPhotos(){
       c.toBlob(function(b){ PHOTOS.push(b);
         var v=document.createElement('img'); v.src=url; $('vg').appendChild(v);
       },'image/jpeg',.82);
+      var z8=Math.min(1,800/Math.max(img.width,img.height));
+      var c8=document.createElement('canvas');
+      c8.width=Math.round(img.width*z8); c8.height=Math.round(img.height*z8);
+      c8.getContext('2d').drawImage(img,0,0,c8.width,c8.height);
+      PHOTOS_DATA.push({nom:f.name||('photo-'+(PHOTOS_DATA.length+1)+'.jpg'),dataurl:c8.toDataURL('image/jpeg',.7)});
     };
     img.src=url;
   });
   $('ph').value='';
 }
 
+/* --- carte de visite : lecture OCR dans le navigateur (tesseract.js).
+       Le lecteur se telecharge au premier passage puis reste en cache ;
+       aucune cle, rien ne sort du telephone sauf la fiche validee. --- */
+var OCR_PRET=null, CV_PHOTOS=[], CV_TEXTE='';
+function chargerOcr(){
+  if(OCR_PRET) return OCR_PRET;
+  OCR_PRET=new Promise(function(res,rej){
+    if(window.Tesseract){ res(); return; }
+    var s=document.createElement('script');
+    s.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+    s.onload=function(){ res(); };
+    s.onerror=function(){ OCR_PRET=null; rej(new Error('chargement OCR')); };
+    document.head.appendChild(s);
+  });
+  return OCR_PRET;
+}
+function carteLire(inp,face){
+  var f=(inp.files||[])[0]; inp.value=''; if(!f) return;
+  var img=new Image(), url=URL.createObjectURL(f);
+  img.onload=function(){
+    var z=Math.min(1,1800/Math.max(img.width,img.height));
+    var c=document.createElement('canvas');
+    c.width=Math.round(img.width*z); c.height=Math.round(img.height*z);
+    c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+    var v=document.createElement('img'); v.src=url; $('vgCv').appendChild(v);
+    c.toBlob(function(b){
+      CV_PHOTOS.push({face:face,blob:b});
+      $('ocrEtat').textContent='Lecture du '+face+'… (le premier passage télécharge le lecteur, ~15 s)';
+      chargerOcr().then(function(){
+        return Tesseract.recognize(b,'fra',{logger:function(m){
+          if(m.status==='recognizing text')
+            $('ocrEtat').textContent='Lecture du '+face+'… '+Math.round((m.progress||0)*100)+' %';
+        }});
+      }).then(function(r){
+        CV_TEXTE+='\n'+((r&&r.data&&r.data.text)||'');
+        carteRemplir();
+        $('ocrEtat').textContent='Carte lue — vérifier la fiche en dessous, tout est corrigeable.';
+      }).catch(function(){
+        $('ocrEtat').textContent='Lecture impossible ici — remplir la fiche à la main, la photo de la carte est conservée.';
+      });
+    },'image/jpeg',.85);
+  };
+  img.src=url;
+}
+function poserSiVide(id,val){ var e=$(id); if(e&&val&&!String(e.value||'').trim()&&!e.dataset.main) e.value=val; }
+function carteRemplir(){
+  var t=CV_TEXTE;
+  var mail=(t.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/)||[])[0]||'';
+  var tel=(t.match(/(?:\+33[\s.]?|0)[1-9](?:[\s.\-]?\d{2}){4}/)||[])[0]||'';
+  var site=(t.match(/(?:https?:\/\/)?www\.[A-Za-z0-9.-]+\.[A-Za-z]{2,}/)||[])[0]||'';
+  if(!site){
+    var doms=t.match(/\b[A-Za-z0-9-]{3,}\.(?:fr|com|eu|net|org|alsace|paris|shop|store|bzh)\b/g)||[];
+    site=doms.filter(function(x){ return mail.indexOf(x)<0; })[0]||'';
+    if(!site&&mail){
+      var dom=(mail.split('@')[1]||'');
+      if(dom&&!/gmail|orange|wanadoo|free\.|hotmail|outlook|yahoo|sfr|laposte|icloud|bbox|numericable|protonmail/i.test(dom))
+        site='www.'+dom;
+    }
+  }
+  var cpv=/\b(\d{5})[ \t]+([A-Za-zÀ-ÿ' -]{2,40})/.exec(t);
+  var lignes=t.split('\n').map(function(x){ return x.trim(); }).filter(function(x){ return x.length>2; });
+  var societe='';
+  for(var i=0;i<lignes.length;i++){
+    var l=lignes[i];
+    if(/@|www\.|\d{5}/.test(l)) continue;
+    if(/(?:\+33|0[1-9])[\s.]?\d/.test(l)) continue;
+    if(l.length<3||l.length>50) continue;
+    societe=l; break;
+  }
+  var contact='';
+  for(var j=0;j<lignes.length;j++){
+    var c2=lignes[j].replace(/^(M\.|Mme|Monsieur|Madame)\s+/i,'').trim();
+    if(c2!==societe&&/^[A-ZÀ-Ü][a-zà-ÿ’'-]+ [A-ZÀ-Ü][A-Za-zÀ-ÿ’'-]+$/.test(c2)){ contact=c2; break; }
+  }
+  poserSiVide('p-mail',mail);
+  poserSiVide('p-tel',tel.replace(/[.\-]/g,' '));
+  poserSiVide('p-site',site.toLowerCase());
+  if(cpv){ poserSiVide('p-cp',cpv[1]); poserSiVide('p-ville',cpv[2].trim()); }
+  poserSiVide('p-rs',societe);
+  poserSiVide('p-int',contact);
+  doublon();
+}
+/* anti-doublon leger : le meme nom existe-t-il deja en client ou en tiers ? */
+function doublon(){
+  var rs=String($('p-rs').value||'').trim();
+  if(rs.length<3){ $('p-doublon').innerHTML=''; return; }
+  var mot=rs.split(/\s+/).sort(function(a,b){ return b.length-a.length; })[0]||'';
+  if(mot.length<3) return;
+  Promise.all([
+    fetch(SB+'/rest/v1/clients?select=code,nom,ville&supprime=is.false&nom=ilike.*'
+      +encodeURIComponent(mot)+'*&limit=3',{headers:T}).then(function(r){return r.ok?r.json():[];}),
+    fetch(SB+'/rest/v1/tiers?select=raison_sociale,ville&raison_sociale=ilike.*'
+      +encodeURIComponent(mot)+'*&limit=3',{headers:T}).then(function(r){return r.ok?r.json():[];})
+  ]).then(function(rr){
+    var l=rr[0].map(function(c){ return c.nom+' ('+c.code+(c.ville?' · '+c.ville:'')+')'; })
+      .concat(rr[1].map(function(x){ return x.raison_sociale+(x.ville?' ('+x.ville+')':'')+' — déjà en tiers'; }));
+    $('p-doublon').innerHTML=l.length
+      ? '<div class="strip"><b>Existe peut-être déjà :</b> '+l.map(ech).join(' · ')
+        +'<br><span style="color:#6F6A6A;font-size:12px">Si c’est le même, ne pas recréer — passer par la fiche existante au bureau.</span></div>'
+      : '';
+  }).catch(function(){});
+}
+
 /* --- envoi --- */
 window.envoyer=function(){
+  if(MODE==='prospect'){ envoyerProspect(); return; }
+  if(MODE==='nc'){ envoyerNC(); return; }
   if(!CLIENT){ $('etat').textContent='Choisir d’abord le client.'; return; }
   var note=$('note').value.trim();
   if(!note && !PHOTOS.length){ $('etat').textContent='Rien à envoyer — une note ou une photo.'; return; }
@@ -205,7 +368,7 @@ window.envoyer=function(){
     var resume, corps;
     if(MODE==='demande'){
       var produit=($('produit').value||'').trim();
-      resume='COMPL\u00c9MENT OFFRE/DEMANDE'+(produit?' — '+produit:'')+(note?' : '+note:'');
+      resume='COMPLÉMENT OFFRE/DEMANDE'+(produit?' — '+produit:'')+(note?' : '+note:'');
       if(urls.length) resume+=' ['+urls.length+' photo'+(urls.length>1?'s':'')+']';
       corps={client_code:CLIENT.code,canal:'visite',sens:'entrant',motif:'devis',
         auto:false,statut:'a_traiter',resume:resume.slice(0,2000),
@@ -225,9 +388,101 @@ window.envoyer=function(){
       ? 'Complément envoyé ✓ — le bureau le rattachera au dossier'
       : 'Visite enregistrée ✓';
     if(MODE!=='demande') rappel(note);
-    PHOTOS=[]; $('vg').innerHTML=''; $('note').value=''; $('go').disabled=false;
+    PHOTOS=[]; PHOTOS_DATA=[]; $('vg').innerHTML=''; $('note').value=''; $('go').disabled=false;
   }).catch(function(){ $('etat').textContent='L’envoi a échoué — réessayer.'; $('go').disabled=false; });
 };
+
+/* --- creation du prospect depuis la carte de visite --- */
+function envoyerProspect(){
+  var rs=String($('p-rs').value||'').trim();
+  if(!rs){ $('etat').textContent='Il faut au moins le nom de la société.'; return; }
+  if(REC){ try{REC.stop();}catch(e){} }
+  $('go').disabled=true; $('etat').textContent='Création du prospect…';
+  var site=String($('p-site').value||'').trim();
+  var note=String($('note').value||'').trim();
+  var corps={raison_sociale:rs,
+    interlocuteur:String($('p-int').value||'').trim(),
+    telephone:String($('p-tel').value||'').trim(),
+    email:String($('p-mail').value||'').trim(),
+    adresse:String($('p-adr').value||'').trim(),
+    cp:String($('p-cp').value||'').trim(),
+    ville:String($('p-ville').value||'').trim(),
+    origine:'carte de visite (mobile)',cree_par:QUI};
+  fetch(SB+'/rest/v1/tiers',{method:'POST',
+    headers:{apikey:CLE,Authorization:'Bearer '+CLE,'Content-Type':'application/json',Prefer:'return=representation'},
+    body:JSON.stringify([corps])})
+  .then(function(r){ if(!r.ok) throw 0; return r.json(); })
+  .then(function(j){
+    var id=j&&j[0]&&j[0].id;
+    var quand=new Date().toISOString().replace(/[:.]/g,'-');
+    var urls=[];
+    var lots=CV_PHOTOS.map(function(p){ return {objet:'prospects/'+id+'/'+quand+'-carte-'+p.face+'.jpg',blob:p.blob}; })
+      .concat(PHOTOS.map(function(b,i){ return {objet:'prospects/'+id+'/'+quand+'-photo-'+(i+1)+'.jpg',blob:b}; }));
+    return lots.reduce(function(p,l){
+      return p.then(function(){
+        return fetch(SB+'/storage/v1/object/photos-produits/'+l.objet,
+          {method:'POST',headers:{apikey:CLE,Authorization:'Bearer '+CLE,
+           'Content-Type':'image/jpeg','x-upsert':'true'},body:l.blob})
+          .then(function(r){ if(r.ok) urls.push(SB+'/storage/v1/object/public/photos-produits/'+l.objet); });
+      });
+    },Promise.resolve()).then(function(){ return {id:id,urls:urls}; });
+  })
+  .then(function(res){
+    var resume='NOUVEAU PROSPECT (carte de visite)'+(site?' — site '+site:'')+(note?' : '+note:'');
+    if(res.urls.length) resume+=' ['+res.urls.length+' photo'+(res.urls.length>1?'s':'')+']';
+    /* trace rattachée au tiers ; si la base refuse, le journal garde tout */
+    fetch(SB+'/rest/v1/interactions',{method:'POST',headers:TJ,
+      body:JSON.stringify({tiers_id:res.id,canal:'visite',sens:'sortant',auto:false,
+        statut:'a_traiter',resume:resume.slice(0,2000),collaborateur:QUI,
+        objet_type:'prospect',objet_ref:res.urls[0]||null})}).catch(function(){});
+    try{fetch(SB+'/rest/v1/journal',{method:'POST',headers:TJ,
+      body:JSON.stringify([{objet:'tiers',objet_ref:rs,action:'creation',auteur:QUI,
+        detail:{source:'carte-visite-mobile',site:site,photos:res.urls,premier_echange:note}}])});}catch(e){}
+    $('etat').textContent='Prospect créé ✓ — le bureau complétera la fiche (SIREN, couverture).';
+    CV_PHOTOS=[]; CV_TEXTE=''; PHOTOS=[]; PHOTOS_DATA=[];
+    $('vgCv').innerHTML=''; $('vg').innerHTML=''; $('note').value=''; $('ocrEtat').textContent='';
+    ['p-rs','p-int','p-tel','p-mail','p-site','p-adr','p-cp','p-ville'].forEach(function(i){
+      $(i).value=''; delete $(i).dataset.main; });
+    $('p-doublon').innerHTML=''; $('go').disabled=false;
+  })
+  .catch(function(){ $('etat').textContent='La création a échoué — réessayer.'; $('go').disabled=false; });
+}
+
+/* --- fiche de non-conformite : meme table et meme circuit que l'ecran
+       Qualite du bureau (famille, gravite, photos, numero NC/RC/QF) --- */
+function envoyerNC(){
+  if(!CLIENT){ $('etat').textContent='Choisir d’abord le client.'; return; }
+  var note=String($('note').value||'').trim();
+  if(!note){ $('etat').textContent='Décrire au moins ce qui s’est passé.'; return; }
+  if(REC){ try{REC.stop();}catch(e){} }
+  $('go').disabled=true; $('etat').textContent='Envoi…';
+  var fam=$('nc-fam').value;
+  var corps={famille:fam,gravite:$('nc-grav').value,service:'Commercial',
+    declarant:QUI,client:CLIENT.nom+' ('+CLIENT.code+')',fournisseur:'',
+    article:String($('nc-art').value||'').trim(),
+    date_constat:new Date().toISOString().slice(0,10),
+    description:note,pieces:PHOTOS_DATA.slice(0,3),modifie_par:QUI};
+  fetch(SB+'/rest/v1/qualite',{method:'POST',
+    headers:{apikey:CLE,Authorization:'Bearer '+CLE,'Content-Type':'application/json',Prefer:'return=representation'},
+    body:JSON.stringify([corps])})
+  .then(function(r){ if(!r.ok) throw 0; return r.json(); })
+  .then(function(j){
+    var cree=j[0];
+    var pref={nc:'NC',reclamation:'RC',fournisseur:'QF'}[cree.famille]||'NC';
+    var numero=pref+'-'+new Date().getFullYear()+'-'+String(cree.id).padStart(6,'0');
+    return fetch(SB+'/rest/v1/qualite?id=eq.'+cree.id,{method:'PATCH',headers:TJ,
+      body:JSON.stringify({numero:numero})}).then(function(){ return numero; });
+  })
+  .then(function(numero){
+    try{fetch(SB+'/rest/v1/journal',{method:'POST',headers:TJ,
+      body:JSON.stringify([{objet:'qualite',objet_ref:numero,action:'declaration',auteur:QUI,
+        detail:{famille:fam,source:'mobile'}}])});}catch(e){}
+    $('etat').textContent=numero+' enregistrée ✓ — la qualité prend le relais.';
+    PHOTOS=[]; PHOTOS_DATA=[]; $('vg').innerHTML=''; $('note').value=''; $('nc-art').value='';
+    $('go').disabled=false;
+  })
+  .catch(function(){ $('etat').textContent='L’envoi a échoué — réessayer.'; $('go').disabled=false; });
+}
 
 /* --- rappel en francais courant, propose puis confirme --- */
 function rappel(txt){
