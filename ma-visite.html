@@ -252,7 +252,7 @@ function ajouterPhotos(){
 /* --- carte de visite : lecture OCR dans le navigateur (tesseract.js).
        Le lecteur se telecharge au premier passage puis reste en cache ;
        aucune cle, rien ne sort du telephone sauf la fiche validee. --- */
-var OCR_PRET=null, CV_PHOTOS=[], CV_TEXTE='', CLE_OCR='';
+var OCR_PRET=null, CV_PHOTOS=[], CV_TEXTE='', CLE_OCR='', MODELE_OCR='gemini-flash-latest';
 /* la cle de lecture IA vit en base (parametres > cle_ocr_mobile), jamais
    dans ce depot public ; restreinte par site chez Google. Sans elle, le
    repli tesseract fait ce qu'il peut. */
@@ -260,6 +260,8 @@ fetch(SB+'/rest/v1/parametres?cle=eq.cle_ocr_mobile&actif=is.true&order=version.
   .then(function(r){ return r.ok?r.json():[]; })
   .then(function(rows){
     CLE_OCR=String((rows[0]&&rows[0].valeur&&(rows[0].valeur.cle||rows[0].valeur.valeur))||'').trim();
+    var m=rows[0]&&rows[0].valeur&&rows[0].valeur.modele;
+    if(m) MODELE_OCR=String(m).trim();
   }).catch(function(){});
 function chargerOcr(){
   if(OCR_PRET) return OCR_PRET;
@@ -305,7 +307,7 @@ function lireIA(c,face){
    +'reseaux = les comptes Instagram / Facebook / LinkedIn lus sur la carte, séparés par « · » ; '
    +'texte = tout le texte lisible de la carte, ligne par ligne. '
    +'Un champ absent de la carte reste vide — n’invente rien.';
-  return fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',{
+  return fetch('https://generativelanguage.googleapis.com/v1beta/models/'+MODELE_OCR+':generateContent',{
     method:'POST',
     headers:{'x-goog-api-key':CLE_OCR,'Content-Type':'application/json'},
     body:JSON.stringify({contents:[{parts:[
