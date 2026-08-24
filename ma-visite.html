@@ -29,6 +29,8 @@ input[type=text],textarea{width:100%;font:16px Inter,sans-serif;padding:12px;
  border:1px solid #E7E3D8;border-radius:10px;background:#FBFAF6}
 textarea{min-height:110px;resize:vertical}
 .fiche input{margin-bottom:8px}
+.btn-sirene{width:100%;border:1px solid #E7E3D8;background:#fff;border-radius:10px;
+ padding:12px;font:600 13px 'Jost',sans-serif;color:#33450F;cursor:pointer}
 .fiche select{width:100%;font:16px Inter,sans-serif;padding:12px;margin-bottom:8px;
  border:1px solid #E7E3D8;border-radius:10px;background:#FBFAF6;-webkit-appearance:none}
 .liste button{display:block;width:100%;text-align:left;background:#fff;border:none;
@@ -122,7 +124,9 @@ function dessiner(){
    +'<input type="text" id="p-site" placeholder="Site internet">'
    +'<input type="text" id="p-adr" placeholder="Adresse">'
    +'<div style="display:flex;gap:8px"><input type="text" id="p-cp" placeholder="CP" inputmode="numeric" style="flex:0 0 34%"><input type="text" id="p-ville" placeholder="Ville" style="flex:1"></div>'
-   +'</div><div id="p-doublon"></div></div>'
+   +'</div>'
+   +'<button type="button" class="btn-sirene" onclick="sireneChercher()">🔎 Compléter par le registre SIRENE — SIRET, adresse officielle</button>'
+   +'<div id="p-sirene"></div><div id="p-doublon"></div></div>'
    +'<div class="carte" id="cNc" style="display:none"><h2>La non-conformité</h2>'
    +'<div class="fiche">'
    +'<select id="nc-fam"><option value="reclamation">Réclamation client</option>'
@@ -314,13 +318,16 @@ function carteRemplir(){
     var c2=lignes[j].replace(/^(M\.|Mme|Monsieur|Madame)\s+/i,'').trim();
     if(c2!==societe&&/^[A-ZÀ-Ü][a-zà-ÿ’'-]+ [A-ZÀ-Ü][A-Za-zÀ-ÿ’'-]+$/.test(c2)){ contact=c2; break; }
   }
+  var adr=(t.match(/\d{1,4}[ ,]{1,3}(?:bis|ter)?\s*(?:rue|avenue|av\.?|boulevard|bd|route|rte|chemin|place|impasse|all[ée]e|quai|cours|faubourg|fbg|za|zi|zac)\b[^\n]{0,60}/i)||[])[0]||'';
   poserSiVide('p-mail',mail);
   poserSiVide('p-tel',tel.replace(/[.\-]/g,' '));
   poserSiVide('p-site',site.toLowerCase());
+  poserSiVide('p-adr',adr.trim());
   if(cpv){ poserSiVide('p-cp',cpv[1]); poserSiVide('p-ville',cpv[2].trim()); }
   poserSiVide('p-rs',societe);
   poserSiVide('p-int',contact);
   doublon();
+  sireneChercher();
 }
 /* anti-doublon leger : le meme nom existe-t-il deja en client ou en tiers ? */
 function doublon(){
@@ -342,6 +349,55 @@ function doublon(){
       : '';
   }).catch(function(){});
 }
+
+/* --- la recherche sous-jacente : le registre SIRENE (gratuit, sans cle,
+       la meme API que la porte d'entree tiers du bureau). Le commercial
+       confirme d'un appui — on ne reprend jamais une fiche sans son aval. --- */
+var SIRENE_LISTE=null, SIRENE_CHOIX=null;
+window.sireneChercher=function(){
+  var rs=String($('p-rs').value||'').trim();
+  if(rs.length<3){ $('p-sirene').innerHTML='<div class="strip">Renseigner d’abord la société (ou photographier la carte).</div>'; return; }
+  var q=(rs+' '+String($('p-ville').value||$('p-cp').value||'').trim()).trim();
+  $('p-sirene').innerHTML='<div class="strip">Recherche au registre SIRENE…</div>';
+  fetch('https://recherche-entreprises.api.gouv.fr/search?per_page=4&q='+encodeURIComponent(q))
+    .then(function(r){ return r.ok?r.json():{results:[]}; })
+    .then(function(j){
+      var l=(j.results||[]);
+      SIRENE_LISTE=l;
+      if(!l.length){
+        $('p-sirene').innerHTML='<div class="strip">Rien au registre sous « '+ech(q)+' » — la fiche partira telle quelle, le bureau complétera.</div>';
+        return;
+      }
+      $('p-sirene').innerHTML='<div class="strip"><b>Registre SIRENE — c’est elle ?</b> Un appui reprend SIRET et adresse officielle.'
+        +l.map(function(e,i){
+          var s=e.siege||{};
+          return '<button style="display:block;width:100%;text-align:left;margin-top:8px" onclick="sirenePrendre('+i+')">'
+            +ech(e.nom_complet||e.nom_raison_sociale||'?')
+            +'<small style="display:block;font-weight:400;color:#6F6A6A">'
+            +ech(s.adresse||'')+' · SIREN '+ech(e.siren||'')
+            +(e.activite_principale?' · APE '+ech(e.activite_principale):'')+'</small></button>';
+        }).join('')+'</div>';
+    })
+    .catch(function(){ $('p-sirene').innerHTML='<div class="strip">Le registre ne répond pas — réessayer, ou laisser le bureau compléter.</div>'; });
+};
+window.sirenePrendre=function(i){
+  var e=(SIRENE_LISTE||[])[i]; if(!e) return;
+  var s=e.siege||{};
+  SIRENE_CHOIX={siren:e.siren||'',siret:s.siret||'',
+    ape:String(e.activite_principale||s.activite_principale||'').replace(/[^0-9A-Za-z.]/g,'')};
+  if(e.nom_complet){ $('p-rs').value=e.nom_complet; $('p-rs').dataset.main='1'; }
+  var rue=[s.numero_voie,s.type_voie,s.libelle_voie].filter(Boolean).join(' ');
+  if(!rue&&s.adresse&&s.code_postal)
+    rue=s.adresse.split(s.code_postal)[0].trim();
+  if(rue){ $('p-adr').value=rue; $('p-adr').dataset.main='1'; }
+  if(s.code_postal){ $('p-cp').value=s.code_postal; $('p-cp').dataset.main='1'; }
+  if(s.libelle_commune){ $('p-ville').value=s.libelle_commune; $('p-ville').dataset.main='1'; }
+  $('p-sirene').innerHTML='<div class="strip">Repris du registre ✓ — SIREN '+ech(SIRENE_CHOIX.siren)
+    +(SIRENE_CHOIX.siret?' · SIRET '+ech(SIRENE_CHOIX.siret):'')
+    +(SIRENE_CHOIX.ape?' · APE '+ech(SIRENE_CHOIX.ape):'')
+    +'<br><span style="color:#6F6A6A;font-size:12px">Ces références partent avec la fiche — la couverture crédit reste au bureau.</span></div>';
+  doublon();
+};
 
 /* --- envoi --- */
 window.envoyer=function(){
@@ -408,6 +464,11 @@ function envoyerProspect(){
     cp:String($('p-cp').value||'').trim(),
     ville:String($('p-ville').value||'').trim(),
     origine:'carte de visite (mobile)',cree_par:QUI};
+  if(SIRENE_CHOIX){
+    if(SIRENE_CHOIX.siren) corps.siren=SIRENE_CHOIX.siren;
+    if(SIRENE_CHOIX.siret) corps.siret=SIRENE_CHOIX.siret;
+    if(SIRENE_CHOIX.ape)   corps.code_ape=SIRENE_CHOIX.ape;
+  }
   fetch(SB+'/rest/v1/tiers',{method:'POST',
     headers:{apikey:CLE,Authorization:'Bearer '+CLE,'Content-Type':'application/json',Prefer:'return=representation'},
     body:JSON.stringify([corps])})
@@ -437,13 +498,14 @@ function envoyerProspect(){
         objet_type:'prospect',objet_ref:res.urls[0]||null})}).catch(function(){});
     try{fetch(SB+'/rest/v1/journal',{method:'POST',headers:TJ,
       body:JSON.stringify([{objet:'tiers',objet_ref:rs,action:'creation',auteur:QUI,
-        detail:{source:'carte-visite-mobile',site:site,photos:res.urls,premier_echange:note}}])});}catch(e){}
+        detail:{source:'carte-visite-mobile',site:site,siren:(SIRENE_CHOIX&&SIRENE_CHOIX.siren)||'',photos:res.urls,premier_echange:note}}])});}catch(e){}
     $('etat').textContent='Prospect créé ✓ — le bureau complétera la fiche (SIREN, couverture).';
     CV_PHOTOS=[]; CV_TEXTE=''; PHOTOS=[]; PHOTOS_DATA=[];
     $('vgCv').innerHTML=''; $('vg').innerHTML=''; $('note').value=''; $('ocrEtat').textContent='';
     ['p-rs','p-int','p-tel','p-mail','p-site','p-adr','p-cp','p-ville'].forEach(function(i){
       $(i).value=''; delete $(i).dataset.main; });
-    $('p-doublon').innerHTML=''; $('go').disabled=false;
+    $('p-doublon').innerHTML=''; $('p-sirene').innerHTML='';
+    SIRENE_LISTE=null; SIRENE_CHOIX=null; $('go').disabled=false;
   })
   .catch(function(){ $('etat').textContent='La création a échoué — réessayer.'; $('go').disabled=false; });
 }
