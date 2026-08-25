@@ -147,7 +147,7 @@ function dessiner(){
    +'<div class="vignettes" id="vg"></div></div>'
    +'<button class="envoyer" id="go" onclick="envoyer()">Enregistrer la visite</button>'
    +'<div class="etat" id="etat"></div><div id="strip"></div>'
-   +'<div style="text-align:center;color:#B7B1A8;font-size:11px;margin-top:8px">SEOS mobile — version du 23/08, carte de visite v4 (lecture IA si la clé est posée)</div>';
+   +'<div style="text-align:center;color:#B7B1A8;font-size:11px;margin-top:8px">SEOS mobile — version du 23/08, carte de visite v5 (lecture IA si la clé est posée)</div>';
   $('q').addEventListener('input',chercher);
   $('ph').addEventListener('change',ajouterPhotos);
   $('cvR').addEventListener('change',function(){carteLire(this,'recto');});
@@ -189,13 +189,19 @@ function chercher(){
   clearTimeout(minuteur);
   var q=$('q').value.trim(); if(q.length<2){ $('sug').innerHTML=''; return; }
   minuteur=setTimeout(function(){
-    fetch(SB+'/rest/v1/clients?select=code,nom,ville&supprime=is.false'
-      +'&or=(nom.ilike.*'+encodeURIComponent(q)+'*,code.ilike.*'+encodeURIComponent(q)+'*)&limit=8',{headers:T})
+    /* 25/08, Philippe (cas ABBA150) : les fiches marquees supprimees — les
+       anciens clients du menage 4D — apparaissent AUSSI dans la recherche,
+       clairement marquees, au lieu d'etre introuvables. Vivantes d'abord. */
+    fetch(SB+'/rest/v1/clients?select=code,nom,ville,supprime,statut'
+      +'&or=(nom.ilike.*'+encodeURIComponent(q)+'*,code.ilike.*'+encodeURIComponent(q)+'*)'
+      +'&order=supprime.asc&limit=10',{headers:T})
       .then(function(r){return r.ok?r.json():[];})
       .then(function(rows){
         $('sug').innerHTML=rows.map(function(c){
           return '<button onclick="prendre(\''+ech(c.code)+'\',\''+ech((c.nom||'').replace(/'/g,'’'))
-            +'\',\''+ech(c.ville||'')+'\')">'+ech(c.nom)+'<small>'+ech(c.code)+' · '+ech(c.ville||'')+'</small></button>';
+            +'\',\''+ech(c.ville||'')+'\')">'+ech(c.nom)
+            +(c.supprime?' <em style="font-style:normal;font-size:10px;background:#F1EFE7;color:#7A736B;border-radius:8px;padding:1px 7px;margin-left:5px;vertical-align:middle">ancien client</em>':'')
+            +'<small>'+ech(c.code)+' · '+ech(c.ville||'')+'</small></button>';
         }).join('');
       });
   },250);
