@@ -147,7 +147,7 @@ function dessiner(){
    +'<div class="vignettes" id="vg"></div></div>'
    +'<button class="envoyer" id="go" onclick="envoyer()">Enregistrer la visite</button>'
    +'<div class="etat" id="etat"></div><div id="strip"></div>'
-   +'<div style="text-align:center;color:#B7B1A8;font-size:11px;margin-top:8px">SEOS mobile — version du 23/08, carte de visite v5 (lecture IA si la clé est posée)</div>';
+   +'<div style="text-align:center;color:#B7B1A8;font-size:11px;margin-top:8px">SEOS mobile — version du 23/08, carte de visite v6 (le créateur devient le commercial du tiers)</div>';
   $('q').addEventListener('input',chercher);
   $('ph').addEventListener('change',ajouterPhotos);
   $('cvR').addEventListener('change',function(){carteLire(this,'recto');});
@@ -589,7 +589,8 @@ function envoyerProspect(){
     adresse:String($('p-adr').value||'').trim(),
     cp:String($('p-cp').value||'').trim(),
     ville:String($('p-ville').value||'').trim(),
-    origine:'carte de visite (mobile)',cree_par:QUI};
+    origine:'carte de visite (mobile)',cree_par:QUI,
+    commercial:QUI /* regle du 25/08 : le createur garde le prospect (script 158) */};
   if(SIRENE_CHOIX){
     if(SIRENE_CHOIX.siren) corps.siren=SIRENE_CHOIX.siren;
     if(SIRENE_CHOIX.siret) corps.siret=SIRENE_CHOIX.siret;
